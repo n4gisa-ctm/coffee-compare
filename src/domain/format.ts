@@ -41,6 +41,20 @@ export const PREFERENCE_LABELS: Record<Preference, string> = {
   unsure: '違いが分からない',
 };
 
+/** 相対味評価の文（例：基準より弱い／基準と同じくらい／分からない） */
+export function formatRelativeTaste(level: RelativeLevel, baseLabel = '基準'): string {
+  switch (level) {
+    case 'weaker':
+      return `${baseLabel}より弱い`;
+    case 'stronger':
+      return `${baseLabel}より強い`;
+    case 'same':
+      return `${baseLabel}と同じくらい`;
+    case 'unsure':
+      return '分からない';
+  }
+}
+
 /** 秒 → 「m分s秒」 */
 export function formatSeconds(sec: number): string {
   const m = Math.floor(sec / 60);

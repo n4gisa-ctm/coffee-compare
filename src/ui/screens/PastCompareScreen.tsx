@@ -5,7 +5,7 @@
 import { useStore } from '../../application/store';
 import type { Navigate } from '../routes';
 import type { Id } from '../../domain/types';
-import { formatDate, formatDateTime, PREFERENCE_LABELS, RELATIVE_LABELS } from '../../domain/format';
+import { formatDate, formatDateTime, formatRelativeTaste, PREFERENCE_LABELS } from '../../domain/format';
 import { CompareTable } from '../CompareTable';
 
 export function PastCompareScreen({
@@ -110,7 +110,7 @@ export function PastCompareScreen({
                 const label = { acidity: '酸味', bitterness: '苦味', body: '濃さ' }[k];
                 return (
                   <p key={k} className="text-sub" style={{ margin: 0 }}>
-                    {label}：比較元より{RELATIVE_LABELS[v]}
+                    {label}：{formatRelativeTaste(v, '比較元')}
                   </p>
                 );
               })}

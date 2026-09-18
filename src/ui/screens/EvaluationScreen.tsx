@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useStore } from '../../application/store';
 import type { Navigate } from '../routes';
 import type { Id, Preference, RelativeLevel, RelativeTaste, ComparisonMode } from '../../domain/types';
-import { formatDate } from '../../domain/format';
+import { formatDate, formatRelativeTaste } from '../../domain/format';
 import { PREFERENCE_LABELS, RELATIVE_LABELS } from '../../domain/format';
 import { CompareTable } from '../CompareTable';
 import { Dialog, Segmented } from '../components';
@@ -139,7 +139,7 @@ export function EvaluationScreen({
             const label = { acidity: '酸味', bitterness: '苦味', body: '濃さ' }[k];
             return (
               <p key={k} className="text-sub" style={{ margin: 0 }}>
-                {label}：基準より{RELATIVE_LABELS[v]}（あなたの感想）
+                {label}：{formatRelativeTaste(v)}（あなたの感想）
               </p>
             );
           })}
