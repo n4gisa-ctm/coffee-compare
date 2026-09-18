@@ -1,10 +1,120 @@
-/** 設定：グループ管理・バックアップ／復元・全削除・保存先の説明 */
+/** 設定：アカウント・グループ管理・バックアップ／復元・全削除・保存先の説明 */
 import { useRef, useState } from 'react';
 import { useStore } from '../../application/store';
+import { useAuth } from '../../application/auth';
 import type { Navigate } from '../routes';
 import type { RestorePreview } from '../../infrastructure/backup';
 import { formatDateTime } from '../../domain/format';
-import { Dialog } from '../components';
+import { Dialog, TextField } from '../components';
+
+/** アカウントセクション：ゲスト⇄ログインの切替 */
+function AccountSection() {
+  const auth = useAuth();
+  const store = useStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  if (!auth.enabled) {
+    return (
+      <p className="notice">
+        アカウント機能はこの環境ではまだ有効になっていません（サーバー設定が未構成です）。現在は端末内保存で利用できます。
+      </p>
+    );
+  }
+
+  const run = (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    fn()
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false));
+  };
+
+  if (auth.session) {
+    return (
+      <div className="card stack">
+        <p style={{ margin: 0 }}>
+          <strong>{auth.email}</strong> でログイン中
+        </p>
+        <p className="text-sub" style={{ margin: 0 }}>
+          記録はアカウントに保存され、ログインすればどの端末からでも見られます。
+        </p>
+        {error && <div className="error-banner" role="alert">{error}</div>}
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy}
+          onClick={() => run(() => auth.signOut())}
+        >
+          ログアウト
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card stack">
+      <p className="text-sub" style={{ margin: 0 }}>
+        ログインすると記録がアカウントに保存され、複数の端末から使えるようになります。ログインしなくても、この端末内でずっと使えます。
+      </p>
+      {error && <div className="error-banner" role="alert">{error}</div>}
+      {info && <div className="notice" role="status">{info}</div>}
+      <TextField label="メールアドレス" value={email} onChange={setEmail} placeholder="you@example.com" />
+      <label className="field">
+        <span className="field__label">パスワード</span>
+        <input
+          type="password"
+          value={password}
+          autoComplete="current-password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <p className="field__hint">6文字以上</p>
+      </label>
+      <div className="btn-row">
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={busy || !email || !password}
+          onClick={() => run(() => auth.signInWithPassword(email.trim(), password))}
+        >
+          ログイン
+        </button>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy || !email || !password}
+          onClick={() =>
+            run(async () => {
+              const result = await auth.signUpWithPassword(email.trim(), password);
+              if (result === 'confirm-email') {
+                setInfo('確認メールを送りました。届いたメールのリンクを開くと登録が完了します。');
+              }
+            })
+          }
+        >
+          新規登録
+        </button>
+      </div>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={busy}
+        onClick={() => run(() => auth.signInWithGoogle())}
+      >
+        Googleでログイン
+      </button>
+      {store.groups.length > 0 && (
+        <p className="text-sub" style={{ margin: 0 }}>
+          この端末のデータは消えません。ログイン後に、アカウントへコピーするか選べます。
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function SettingsScreen({ navigate }: { navigate: Navigate }) {
   const store = useStore();
@@ -39,6 +149,9 @@ export function SettingsScreen({ navigate }: { navigate: Navigate }) {
           {message}
         </div>
       )}
+
+      <h2 className="section-heading">アカウント</h2>
+      <AccountSection />
 
       <h2 className="section-heading">豆と器具</h2>
       <div className="stack">
@@ -97,7 +210,9 @@ export function SettingsScreen({ navigate }: { navigate: Navigate }) {
       <h2 className="section-heading">データ</h2>
       <div className="stack">
         <div className="notice">
-          データはこの端末・このブラウザの中（IndexedDB）に保存されます。他の端末へ自動同期されません。ブラウザのサイトデータ削除で消えることがあるため、ときどきバックアップの保存をおすすめします。
+          {store.isCloud
+            ? '記録はあなたのアカウント（クラウド）に保存されています。バックアップの書き出しはいつでもできます。'
+            : 'データはこの端末・このブラウザの中（IndexedDB）に保存されます。他の端末へ自動同期されません。ブラウザのサイトデータ削除で消えることがあるため、ときどきバックアップの保存をおすすめします。'}
           {store.settings.lastBackupAt && (
             <>
               <br />

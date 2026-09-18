@@ -1,9 +1,10 @@
 /**
  * JSONバックアップ／復元。
  * 復元は全置換方式：事前検証で不正なら既存データを一切変更しない。
+ * 保存先はリポジトリ（ゲスト＝端末内／ログイン中＝クラウド）に従う。
  */
-import type { AllData } from './db';
-import { STORES, writeTx, settingsPutOp, type WriteOp } from './db';
+import type { AllData, Repository, WriteOp } from '../application/repository';
+import { STORES, settingsPutOp } from '../application/repository';
 import type { BackupFile } from '../domain/types';
 import { SCHEMA_VERSION, DEFAULT_SETTINGS } from '../domain/types';
 
@@ -99,9 +100,9 @@ export function validateBackup(text: string): RestorePreview {
   };
 }
 
-/** 検証済みバックアップで全置換する（clear + put を1トランザクションで実行） */
-export async function restoreBackup(backup: BackupFile): Promise<void> {
-  const ops: WriteOp[] = STORES.map((store) => ({ store, type: 'clear' as const }));
+/** バックアップの全データを put する ops を作る（復元・データ移行で共用） */
+export function backupPutOps(backup: BackupFile): WriteOp[] {
+  const ops: WriteOp[] = [];
   const putAll = (store: (typeof STORES)[number], items: { id: string }[]) => {
     for (const item of items) ops.push({ store, type: 'put', value: item });
   };
@@ -111,7 +112,14 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
   putAll('comparisons', backup.comparisons);
   putAll('baselineChanges', backup.baselineChanges);
   ops.push(settingsPutOp({ ...DEFAULT_SETTINGS, ...backup.settings, schemaVersion: SCHEMA_VERSION }));
-  await writeTx(ops);
+  return ops;
+}
+
+/** 検証済みバックアップで全置換する（clear + put を1トランザクションで実行） */
+export async function restoreBackup(backup: BackupFile, repo: Repository): Promise<void> {
+  const ops: WriteOp[] = STORES.map((store) => ({ store, type: 'clear' as const }));
+  ops.push(...backupPutOps(backup));
+  await repo.commit(ops);
 }
 
 /** JSONファイルとしてダウンロード */

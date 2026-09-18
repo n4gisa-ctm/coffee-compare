@@ -1,6 +1,7 @@
 /**
  * アプリケーション層：ユースケースと状態管理。
  * 保存成功後のみ状態を更新する（失敗時は入力を保持し再試行可能）。
+ * 保存先はログイン状態で切替わる：ゲスト＝端末内（IndexedDB）／ログイン中＝クラウド（Supabase）。
  */
 import {
   createContext,
@@ -28,17 +29,20 @@ import type {
   Settings,
 } from '../domain/types';
 import { DEFAULT_SETTINGS } from '../domain/types';
+import type { AllData, Repository, WriteOp } from './repository';
+import { settingsPutOp } from './repository';
+import { localRepository, newId } from '../infrastructure/db';
+import { supabase } from '../infrastructure/supabase';
+import { createSupabaseRepository } from '../infrastructure/supabaseRepo';
 import {
-  loadAll,
-  writeTx,
-  settingsPutOp,
-  clearAllData,
-  newId,
-  type AllData,
-  type WriteOp,
-} from '../infrastructure/db';
-import { buildBackup, downloadBackup, validateBackup, restoreBackup } from '../infrastructure/backup';
+  buildBackup,
+  downloadBackup,
+  validateBackup,
+  restoreBackup,
+  backupPutOps,
+} from '../infrastructure/backup';
 import type { RestorePreview } from '../infrastructure/backup';
+import { useAuth } from './auth';
 
 /** 進行中の比較は全体で1件（固定ID） */
 const DRAFT_ID = 'current-draft';
@@ -52,6 +56,12 @@ export interface CreateGroupInput {
   grinderName: string | null;
 }
 
+export interface MigrationCandidate {
+  groups: number;
+  brews: number;
+  comparisons: number;
+}
+
 interface StoreState extends AllData {
   loaded: boolean;
   loadError: string | null;
@@ -60,6 +70,12 @@ interface StoreState extends AllData {
 interface StoreApi extends StoreState {
   draft: Draft | null;
   activeGroup: BrewGroup | null;
+  /** true = クラウド（アカウント）保存、false = この端末に保存 */
+  isCloud: boolean;
+  /** ログイン直後、端末内にゲストデータが残っている場合の移行候補 */
+  migrationCandidate: MigrationCandidate | null;
+  migrateLocalToCloud: () => Promise<void>;
+  dismissMigration: () => void;
   reload: () => Promise<void>;
   acknowledgeStorageNotice: () => Promise<void>;
   setActiveGroup: (id: Id) => Promise<void>;
@@ -94,45 +110,82 @@ export function useStore(): StoreApi {
   return ctx;
 }
 
+const EMPTY_STATE: StoreState = {
+  beanBatches: [],
+  groups: [],
+  brews: [],
+  comparisons: [],
+  drafts: [],
+  baselineChanges: [],
+  settings: { ...DEFAULT_SETTINGS },
+  loaded: false,
+  loadError: null,
+};
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({
-    beanBatches: [],
-    groups: [],
-    brews: [],
-    comparisons: [],
-    drafts: [],
-    baselineChanges: [],
-    settings: { ...DEFAULT_SETTINGS },
-    loaded: false,
-    loadError: null,
-  });
-  // 保存連打防止：進行中の書き込みがあれば直列化する
+  const auth = useAuth();
+  const userId = auth.session?.user.id ?? null;
+
+  // ログイン状態に応じて保存先リポジトリを切替える
+  const repo: Repository = useMemo(
+    () => (userId && supabase ? createSupabaseRepository(supabase) : localRepository),
+    [userId],
+  );
+  const isCloud = userId !== null && supabase !== null;
+
+  const [state, setState] = useState<StoreState>(EMPTY_STATE);
+  const [migrationCandidate, setMigrationCandidate] = useState<MigrationCandidate | null>(null);
+  // 保存連打防止：進行中の書き込みを直列化する
   const writeLock = useRef<Promise<unknown>>(Promise.resolve());
 
   const reload = useCallback(async () => {
     try {
-      const data = await loadAll();
+      const data = await repo.loadAll();
       setState({ ...data, loaded: true, loadError: null });
     } catch (e) {
       setState((s) => ({ ...s, loaded: true, loadError: e instanceof Error ? e.message : String(e) }));
     }
-  }, []);
+  }, [repo]);
 
+  // 認証状態の初期化後、リポジトリが切替わるたびに読み直す
   useEffect(() => {
+    if (!auth.ready) return;
+    setState(EMPTY_STATE);
     void reload();
-  }, [reload]);
+  }, [auth.ready, reload]);
+
+  // ログイン直後：クラウドが空で、端末内にゲストデータが残っていれば移行を提案する
+  useEffect(() => {
+    if (!state.loaded || !isCloud || !userId) return;
+    if (state.groups.length > 0 || state.brews.length > 0) return;
+    if (localStorage.getItem(`cc-migration-dismissed-${userId}`)) return;
+    let cancelled = false;
+    void localRepository.loadAll().then((local) => {
+      if (cancelled) return;
+      if (local.groups.length > 0 || local.brews.length > 0) {
+        setMigrationCandidate({
+          groups: local.groups.length,
+          brews: local.brews.length,
+          comparisons: local.comparisons.length,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.loaded, state.groups.length, state.brews.length, isCloud, userId]);
 
   /** 書き込み→成功時のみ状態反映。直列化して競合と連打を防ぐ */
   const commit = useCallback(
     async (ops: WriteOp[], apply: (s: StoreState) => StoreState): Promise<void> => {
       const run = writeLock.current.then(async () => {
-        await writeTx(ops);
+        await repo.commit(ops);
         setState((s) => apply(s));
       });
       writeLock.current = run.catch(() => undefined);
       return run;
     },
-    [],
+    [repo],
   );
 
   const saveSettings = useCallback(
@@ -153,7 +206,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...state,
       draft,
       activeGroup,
+      isCloud,
+      migrationCandidate,
       reload,
+
+      async migrateLocalToCloud() {
+        if (!isCloud) throw new Error('ログイン中のみ移行できます');
+        const local = await localRepository.loadAll();
+        const ops = backupPutOps(buildBackup(local));
+        await repo.commit(ops);
+        setMigrationCandidate(null);
+        await reload();
+      },
+
+      dismissMigration() {
+        if (userId) localStorage.setItem(`cc-migration-dismissed-${userId}`, '1');
+        setMigrationCandidate(null);
+      },
 
       async acknowledgeStorageNotice() {
         await saveSettings({ ...state.settings, storageNoticeAcknowledged: true });
@@ -406,7 +475,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
 
       async exportBackup() {
-        const data = await loadAll();
+        const data = await repo.loadAll();
         const backup = buildBackup(data);
         downloadBackup(backup);
         const settings = { ...data.settings, lastBackupAt: backup.exportedAt };
@@ -418,16 +487,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
 
       async applyRestore(preview) {
-        await restoreBackup(preview.backup);
+        await restoreBackup(preview.backup, repo);
         await reload();
       },
 
       async deleteAllData() {
-        await clearAllData();
+        await repo.clearAll();
         await reload();
       },
     };
-  }, [state, commit, reload, saveSettings]);
+  }, [state, commit, reload, saveSettings, repo, isCloud, migrationCandidate, userId]);
 
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;
 }

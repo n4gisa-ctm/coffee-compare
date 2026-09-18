@@ -251,6 +251,8 @@ body {
 .field input[type='text'],
 .field input[type='date'],
 .field input[type='number'],
+.field input[type='password'],
+.field input[type='email'],
 .field textarea,
 .field select {
   width: 100%;

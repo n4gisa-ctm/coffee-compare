@@ -99,14 +99,41 @@ export function App() {
       </nav>
 
       {/* 初回の保存先説明（要件 §8） */}
-      {!store.settings.storageNoticeAcknowledged && (
+      {!store.settings.storageNoticeAcknowledged && !store.migrationCandidate && (
         <Dialog title="データの保存先について" onClose={() => void store.acknowledgeStorageNotice()}>
-          <p>
-            記録はこの端末・このブラウザの中に保存されます。他の端末へ自動同期されません。ブラウザのサイトデータ削除で消えることがあるため、大切な記録は「設定」からバックアップを書き出せます。
-          </p>
+          {store.isCloud ? (
+            <p>記録はあなたのアカウントに保存され、ログインすればどの端末からでも見られます。</p>
+          ) : (
+            <p>
+              記録はこの端末・このブラウザの中に保存されます。他の端末へ自動同期されません。ブラウザのサイトデータ削除で消えることがあるため、大切な記録は「設定」からバックアップを書き出せます。
+            </p>
+          )}
           <button type="button" className="btn btn--primary" onClick={() => void store.acknowledgeStorageNotice()}>
             わかりました
           </button>
+        </Dialog>
+      )}
+
+      {/* ログイン直後：端末内のゲストデータの移行提案 */}
+      {store.migrationCandidate && (
+        <Dialog title="この端末のデータをアカウントへコピーしますか？" onClose={() => store.dismissMigration()}>
+          <p>
+            ログイン前にこの端末で記録したデータ（グループ{store.migrationCandidate.groups}件・一杯
+            {store.migrationCandidate.brews}件・比較{store.migrationCandidate.comparisons}件）が見つかりました。
+            アカウントへコピーすると、他の端末からも見られるようになります。
+          </p>
+          <div className="btn-row">
+            <button type="button" className="btn btn--secondary" onClick={() => store.dismissMigration()}>
+              今はしない
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => void store.migrateLocalToCloud().catch(() => undefined)}
+            >
+              コピーする
+            </button>
+          </div>
         </Dialog>
       )}
     </div>
