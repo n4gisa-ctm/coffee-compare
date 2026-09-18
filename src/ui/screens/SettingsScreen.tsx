@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../../application/store';
 import { useAuth } from '../../application/auth';
+import { googleLoginEnabled } from '../../infrastructure/supabase';
 import type { Navigate } from '../routes';
 import type { RestorePreview } from '../../infrastructure/backup';
 import { formatDateTime } from '../../domain/format';
@@ -99,14 +100,16 @@ function AccountSection() {
           新規登録
         </button>
       </div>
-      <button
-        type="button"
-        className="btn btn--secondary"
-        disabled={busy}
-        onClick={() => run(() => auth.signInWithGoogle())}
-      >
-        Googleでログイン
-      </button>
+      {googleLoginEnabled && (
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy}
+          onClick={() => run(() => auth.signInWithGoogle())}
+        >
+          Googleでログイン
+        </button>
+      )}
       {store.groups.length > 0 && (
         <p className="text-sub" style={{ margin: 0 }}>
           この端末のデータは消えません。ログイン後に、アカウントへコピーするか選べます。

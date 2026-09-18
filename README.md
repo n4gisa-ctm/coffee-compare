@@ -57,7 +57,7 @@ npm run build    # 型チェック＋本番ビルド（dist/）
    - ローカル：`.env.local` に `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` を記入（[.env.example](.env.example) 参照）
    - Vercel：Project → Settings → Environment Variables に同じ2つを追加して再デプロイ
 5. **Authentication → URL Configuration** の Site URL に公開URL（例 `https://coffee-compare-vert.vercel.app`）を設定
-6. （Googleログインを使う場合）**Authentication → Providers → Google** を有効化。Google Cloud ConsoleでOAuthクライアントを作成し、Client ID / Secret を設定
+6. （Googleログインを使う場合）**Authentication → Providers → Google** を有効化。Google Cloud ConsoleでOAuthクライアントを作成し、Client ID / Secret を設定。そのうえで環境変数 `VITE_ENABLE_GOOGLE_LOGIN=1` を追加するとログイン画面にGoogleボタンが表示される（未設定の間は非表示）
 
 データはユーザーごとにRLS（行レベルセキュリティ）で分離され、書き込みはPostgres関数 `apply_ops` により1トランザクションで適用されます。
 

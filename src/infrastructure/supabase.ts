@@ -12,3 +12,11 @@ export const supabase: SupabaseClient | null =
   url && anonKey ? createClient(url, anonKey) : null;
 
 export const cloudEnabled = supabase !== null;
+
+/**
+ * Googleログインの表示フラグ。
+ * Google Cloud側のOAuthクライアント設定が済んでから
+ * VITE_ENABLE_GOOGLE_LOGIN=1 を設定すると表示される。
+ */
+export const googleLoginEnabled =
+  cloudEnabled && import.meta.env.VITE_ENABLE_GOOGLE_LOGIN === '1';
