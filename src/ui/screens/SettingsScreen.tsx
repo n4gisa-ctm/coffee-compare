@@ -1,0 +1,218 @@
+/** 設定：グループ管理・バックアップ／復元・全削除・保存先の説明 */
+import { useRef, useState } from 'react';
+import { useStore } from '../../application/store';
+import type { Navigate } from '../routes';
+import type { RestorePreview } from '../../infrastructure/backup';
+import { formatDateTime } from '../../domain/format';
+import { Dialog } from '../components';
+
+export function SettingsScreen({ navigate }: { navigate: Navigate }) {
+  const store = useStore();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const groups = [...store.groups].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const onFile = async (file: File) => {
+    setError(null);
+    setMessage(null);
+    try {
+      const text = await file.text();
+      setRestorePreview(store.previewRestore(text));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  return (
+    <div>
+      <h1 className="screen-title">設定</h1>
+
+      {error && <div className="error-banner" role="alert" style={{ marginBottom: 16 }}>{error}</div>}
+      {message && (
+        <div className="notice" role="status" style={{ marginBottom: 16 }}>
+          {message}
+        </div>
+      )}
+
+      <h2 className="section-heading">豆と器具</h2>
+      <div className="stack">
+        {groups.length === 0 && <p className="text-sub">まだ登録がありません。</p>}
+        {groups.map((g) => {
+          const bean = store.beanBatches.find((b) => b.id === g.beanBatchId);
+          const archived = g.archivedAt !== null;
+          return (
+            <div key={g.id} className={`card ${archived ? 'card--sub' : ''}`}>
+              <p style={{ margin: 0 }}>
+                <strong>{bean?.name ?? '豆'}</strong> × {g.brewerName}
+                {g.grinderName && <span className="text-sub">（{g.grinderName}）</span>}
+                {archived && (
+                  <span className="badge badge--muted" style={{ marginLeft: 8 }}>
+                    アーカイブ済み
+                  </span>
+                )}
+              </p>
+              <div className="btn-row" style={{ marginTop: 8 }}>
+                {!archived && (
+                  <button
+                    type="button"
+                    className="btn btn--text"
+                    onClick={() => navigate({ name: 'groupForm', groupId: g.id })}
+                  >
+                    編集
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn--text"
+                  onClick={() =>
+                    void store
+                      .setGroupArchived(g.id, !archived)
+                      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                  }
+                >
+                  {archived ? 'アーカイブを解除' : 'アーカイブ'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={() => navigate({ name: 'groupForm', groupId: null })}
+        >
+          新しい豆・器具を登録する
+        </button>
+        <p className="text-sub" style={{ margin: 0 }}>
+          グループは削除ではなくアーカイブで履歴を保ちます。記録の削除は「すべてのデータを削除」だけです。
+        </p>
+      </div>
+
+      <h2 className="section-heading">データ</h2>
+      <div className="stack">
+        <div className="notice">
+          データはこの端末・このブラウザの中（IndexedDB）に保存されます。他の端末へ自動同期されません。ブラウザのサイトデータ削除で消えることがあるため、ときどきバックアップの保存をおすすめします。
+          {store.settings.lastBackupAt && (
+            <>
+              <br />
+              最終バックアップ：{formatDateTime(store.settings.lastBackupAt)}
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError(null);
+            store
+              .exportBackup()
+              .then(() => setMessage('バックアップファイルを書き出しました。'))
+              .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          バックアップを書き出す（JSON）
+        </button>
+        <label className="btn btn--secondary" style={{ cursor: 'pointer' }}>
+          バックアップから復元する
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+            }}
+          />
+        </label>
+        <button type="button" className="btn btn--danger-text" onClick={() => setConfirmDelete(true)}>
+          すべてのデータを削除する
+        </button>
+      </div>
+
+      <h2 className="section-heading">このアプリについて</h2>
+      <p className="text-sub">
+        Coffee Compare は、2杯の条件差と好みを比較して、次回の基準を選ぶためのツールです。味の記録は端末の外へ送信されません。比較の結果はあなた自身の感想であり、科学的な優劣を示すものではありません。
+      </p>
+
+      {restorePreview && (
+        <Dialog title="バックアップから復元しますか？" onClose={() => setRestorePreview(null)}>
+          <p>
+            このファイルには グループ{restorePreview.counts.groups}件・一杯{restorePreview.counts.brews}
+            件・比較{restorePreview.counts.comparisons}件 が含まれています。
+          </p>
+          <p>
+            <strong>現在のデータはすべて置き換えられます。</strong>
+            必要なら先に現在のデータのバックアップを書き出してください。
+          </p>
+          <div className="btn-row">
+            <button type="button" className="btn btn--secondary" onClick={() => setRestorePreview(null)}>
+              やめる
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                store
+                  .applyRestore(restorePreview)
+                  .then(() => {
+                    setRestorePreview(null);
+                    setMessage('復元しました。');
+                  })
+                  .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              置き換えて復元する
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {confirmDelete && (
+        <Dialog title="すべてのデータを削除しますか？" onClose={() => setConfirmDelete(false)}>
+          <p>
+            すべての豆・一杯・比較・基準の履歴が削除されます。この操作は取り消せません。先にバックアップの書き出しをおすすめします。
+          </p>
+          <div className="btn-row">
+            <button type="button" className="btn btn--secondary" onClick={() => setConfirmDelete(false)}>
+              やめる
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ background: 'var(--color-danger)', color: '#fff' }}
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                store
+                  .deleteAllData()
+                  .then(() => {
+                    setConfirmDelete(false);
+                    setMessage('すべてのデータを削除しました。');
+                  })
+                  .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              削除する
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
+}

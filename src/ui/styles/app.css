@@ -1,0 +1,539 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%; /* ユーザーの文字サイズ設定を尊重 */
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- レイアウト ---------- */
+.app {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__main {
+  flex: 1;
+  padding: var(--space-4);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.screen-title {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  margin: var(--space-2) 0 var(--space-4);
+  line-height: 1.3;
+}
+
+.section-heading {
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  margin: var(--space-5) 0 var(--space-3);
+}
+
+.text-sub {
+  color: var(--color-text-sub);
+  font-size: var(--fs-small);
+}
+
+.stack > * + * {
+  margin-top: var(--space-3);
+}
+
+/* ---------- タブバー ---------- */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 20;
+}
+
+.tabbar__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  display: flex;
+}
+
+.tabbar__item {
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+  cursor: pointer;
+}
+
+.tabbar__item[aria-current='page'] {
+  color: var(--color-accent-strong);
+  font-weight: 600;
+}
+
+.tabbar__icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* ---------- カード ---------- */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+}
+
+.card--sub {
+  background: var(--color-surface-sub);
+  box-shadow: none;
+}
+
+/* ---------- ボタン ---------- */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-button);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.btn--primary:active {
+  background: var(--color-accent-strong);
+}
+
+.btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-accent-strong);
+  border-color: var(--color-accent);
+}
+
+.btn--text {
+  background: none;
+  color: var(--color-accent-strong);
+  min-height: var(--tap-min);
+  width: auto;
+}
+
+.btn--danger-text {
+  background: none;
+  color: var(--color-danger);
+  min-height: var(--tap-min);
+  width: auto;
+}
+
+.btn:disabled {
+  background: var(--color-surface-sub);
+  color: var(--color-text-sub);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.btn-row > .btn {
+  flex: 1;
+}
+
+/* ---------- バッジ ---------- */
+.badge {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-badge);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.badge--baseline {
+  color: var(--color-baseline);
+  border: 1px solid var(--color-baseline);
+  background: #fff;
+}
+
+.badge--diff {
+  color: var(--color-diff-text);
+  background: var(--color-diff-bg);
+}
+
+.badge--new {
+  color: var(--color-new-text);
+  background: var(--color-new-bg);
+}
+
+.badge--muted {
+  color: var(--color-text-sub);
+  border: 1px solid var(--color-border);
+  background: #fff;
+}
+
+/* ---------- フォーム ---------- */
+.field {
+  display: block;
+}
+
+.field__label {
+  display: block;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.field__label .field__optional {
+  font-weight: 400;
+  color: var(--color-text-sub);
+}
+
+.field__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.field input[type='text'],
+.field input[type='date'],
+.field input[type='number'],
+.field textarea,
+.field select {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--color-text);
+}
+
+.field input:disabled,
+.field textarea:disabled {
+  background: var(--color-surface-sub);
+  color: var(--color-text-sub);
+}
+
+.field__unit {
+  flex-shrink: 0;
+  color: var(--color-text-sub);
+  font-size: var(--fs-small);
+  min-width: 2em;
+}
+
+.field__error {
+  color: var(--color-danger);
+  font-size: var(--fs-small);
+  margin-top: var(--space-1);
+}
+
+.field__warning {
+  color: var(--color-accent-strong);
+  font-size: var(--fs-small);
+  margin-top: var(--space-1);
+}
+
+.field__hint {
+  color: var(--color-text-sub);
+  font-size: var(--fs-small);
+  margin-top: var(--space-1);
+}
+
+/* 不明トグル */
+.unknown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+  min-height: var(--tap-min);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ---------- チップ選択 ---------- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-diff-bg);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+}
+
+/* セグメント（3択評価など） */
+.segment {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.segment__item {
+  flex: 1;
+  min-height: var(--tap-min);
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.segment__item + .segment__item {
+  border-left: 1px solid var(--color-border);
+}
+
+.segment__item[aria-pressed='true'] {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- 比較表 ---------- */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-table caption {
+  text-align: left;
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+  margin-bottom: var(--space-2);
+}
+
+.compare-table th,
+.compare-table td {
+  padding: var(--space-2) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+  line-height: 1.4;
+}
+
+.compare-table thead th {
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+  font-weight: 600;
+}
+
+.compare-table tbody th {
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+  font-weight: 400;
+  width: 5.5em;
+}
+
+.compare-table td {
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.compare-table__row--changed {
+  background: var(--color-diff-bg);
+}
+
+.compare-table__row--new {
+  background: var(--color-new-bg);
+}
+
+.compare-table__delta {
+  display: inline-block;
+  margin-left: var(--space-1);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--color-diff-text);
+}
+
+.compare-table__marker {
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+}
+
+/* ---------- ダイアログ ---------- */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 46, 37, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 50;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: var(--space-5);
+  width: 100%;
+  max-width: 400px;
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+
+.dialog__title {
+  font-size: var(--fs-heading);
+  font-weight: 700;
+  margin: 0 0 var(--space-3);
+}
+
+/* ---------- 空状態 ---------- */
+.empty {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-text-sub);
+}
+
+.empty__action {
+  margin-top: var(--space-4);
+}
+
+/* ---------- その他 ---------- */
+.top-nav {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  margin-bottom: var(--space-2);
+}
+
+.notice {
+  background: var(--color-surface-sub);
+  border-radius: var(--radius-card);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+}
+
+.error-banner {
+  background: #fbe9e5;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  border-radius: var(--radius-card);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-small);
+}
+
+.baseline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.baseline-summary dt {
+  font-size: var(--fs-small);
+  color: var(--color-text-sub);
+}
+
+.baseline-summary dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.baseline-summary > div {
+  min-width: 5em;
+}
+
+.history-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.fade-in {
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
